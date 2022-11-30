@@ -49,13 +49,15 @@ from cachelib.base import BaseCache
 from celery.schedules import crontab
 from dateutil import tz
 from flask import Blueprint
-from flask_appbuilder.security.manager import AUTH_DB
+from flask_appbuilder.security.manager import AUTH_DB, AUTH_OID
+# from flask_appbuilder.security.manager import AUTH_DB
 from pandas._libs.parsers import STR_NA_VALUES  # pylint: disable=no-name-in-module
 
 from superset.advanced_data_type.plugins.internet_address import internet_address
 from superset.advanced_data_type.plugins.internet_port import internet_port
 from superset.advanced_data_type.types import AdvancedDataType
 from superset.constants import CHANGE_ME_SECRET_KEY
+from superset.customSecurity import OIDCSecurityManager
 from superset.jinja_context import BaseTemplateProcessor
 from superset.reports.types import ReportScheduleExecutor
 from superset.stats_logger import DummyStatsLogger
@@ -311,7 +313,19 @@ DRUID_ANALYSIS_TYPES = ["cardinality"]
 # AUTH_DB : Is for database (username/password)
 # AUTH_LDAP : Is for LDAP
 # AUTH_REMOTE_USER : Is for using REMOTE_USER from web server
-AUTH_TYPE = AUTH_DB
+curr  =  os.path.abspath(os.getcwd())
+# AUTH_TYPE = AUTH_DB
+AUTH_TYPE = AUTH_OID
+OIDC_CLIENT_SECRETS= curr+ '/superset/client_secret.json'
+OIDC_ID_TOKEN_COOKIE_SECURE = False
+OIDC_REQUIRE_VERIFIED_EMAIL = False
+OIDC_CLOCK_SKEW = 560
+OIDC_VALID_ISSUERS = 'http://192.168.0.105:5006'
+AUTH_USER_REGISTRATION = False
+AUTH_USER_REGISTRATION_ROLE = 'Gamma'
+CUSTOM_SECURITY_MANAGER = OIDCSecurityManager
+OIDC_INTROSPECTION_AUTH_METHOD = 'client_secret_post'
+OIDC_TOKEN_TYPE_HINT = 'access_token'
 
 # Uncomment to setup Full admin role name
 # AUTH_ROLE_ADMIN = 'Admin'
@@ -400,7 +414,7 @@ DEFAULT_FEATURE_FLAGS: Dict[str, bool] = {
     # make GET request to explore_json. explore_json accepts both GET and POST request.
     # See `PR 7935 <https://github.com/apache/superset/pull/7935>`_ for more details.
     "ENABLE_EXPLORE_JSON_CSRF_PROTECTION": False,
-    "ENABLE_TEMPLATE_PROCESSING": False,
+    "ENABLE_TEMPLATE_PROCESSING": True,
     "ENABLE_TEMPLATE_REMOVE_FILTERS": False,
     # Allow for javascript controls components
     # this enables programmers to customize certain charts (like the
