@@ -108,5 +108,6 @@ release.json
 messages.mo
 
 docker/requirements-local.txt
+superset/client_secret.json
 
 cache/
