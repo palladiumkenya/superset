@@ -44,9 +44,9 @@ services:
     container_name: superset_db
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5432:5432"    
     volumes:
-      - db_home:/var/lib/postgresql/data
+      - db_home:/var/lib/postgresql/data      
 
   superset:
     env_file: docker/.env
@@ -62,14 +62,14 @@ services:
     environment:
       CYPRESS_CONFIG: "${CYPRESS_CONFIG}"
 
-  superset-websocket:
-    container_name: superset_websocket
-    build: ./superset-websocket
-    image: superset-websocket
-    ports:
-      - 8080:8080
-    depends_on:
-      - redis
+  # superset-websocket:
+  #   container_name: superset_websocket
+  #   build: ./superset-websocket
+  #   image: superset-websocket
+  #   ports:
+  #     - 8080:8080
+  #   depends_on:
+  #     - redis
     # Mount everything in superset-websocket into container and
     # then exclude node_modules and dist with bogus volume mount.
     # This is necessary because host and container need to have
@@ -80,15 +80,15 @@ services:
     # For example, node_modules may contain libs with native bindings.
     # Those bindings need to be compiled for each OS and the container
     # OS is not necessarily the same as host OS.
-    volumes:
-      - ./superset-websocket:/home/superset-websocket
-      - /home/superset-websocket/node_modules
-      - /home/superset-websocket/dist
-    environment:
-      - PORT=8080
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_SSL=false
+    # volumes:
+    #   - ./superset-websocket:/home/superset-websocket
+    #   - /home/superset-websocket/node_modules
+    #   - /home/superset-websocket/dist
+    # environment:
+    #   - PORT=8080
+    #   - REDIS_HOST=redis
+    #   - REDIS_PORT=6379
+    #   - REDIS_SSL=false
 
   superset-init:
     image: *superset-image
@@ -104,7 +104,7 @@ services:
       disable: true
 
   superset-node:
-    image: node:16
+    image: node:16.9.1    
     container_name: superset_node
     command: ["/app/docker/docker-frontend.sh"]
     env_file: docker/.env
@@ -138,23 +138,23 @@ services:
     healthcheck:
       disable: true
 
-  superset-tests-worker:
-    image: *superset-image
-    container_name: superset_tests_worker
-    command: ["/app/docker/docker-bootstrap.sh", "worker"]
-    env_file: docker/.env
-    environment:
-      DATABASE_HOST: localhost
-      DATABASE_DB: test
-      REDIS_CELERY_DB: 2
-      REDIS_RESULTS_DB: 3
-      REDIS_HOST: localhost
-    network_mode: host
-    depends_on: *superset-depends-on
-    user: *superset-user
-    volumes: *superset-volumes
-    healthcheck:
-      test: ["CMD-SHELL", "celery inspect ping -A superset.tasks.celery_app:app -d celery@$$HOSTNAME"]
+  # superset-tests-worker:
+  #   image: *superset-image
+  #   container_name: superset_tests_worker
+  #   command: ["/app/docker/docker-bootstrap.sh", "worker"]
+  #   env_file: docker/.env
+  #   environment:
+  #     DATABASE_HOST: localhost
+  #     DATABASE_DB: test
+  #     REDIS_CELERY_DB: 2
+  #     REDIS_RESULTS_DB: 3
+  #     REDIS_HOST: localhost
+  #   network_mode: host
+  #   depends_on: *superset-depends-on
+  #   user: *superset-user
+  #   volumes: *superset-volumes
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "celery inspect ping -A superset.tasks.celery_app:app -d celery@$$HOSTNAME"]
 
 volumes:
   superset_home:
