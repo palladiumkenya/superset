@@ -22,47 +22,56 @@
 #
 import logging
 import os
+from datetime import timedelta
+from typing import Optional
 
+from cachelib.file import FileSystemCache
 from celery.schedules import crontab
-from flask_caching.backends.filesystemcache import FileSystemCache
+
 
 logger = logging.getLogger()
 
-DATABASE_DIALECT = os.getenv("DATABASE_DIALECT")
-DATABASE_USER = os.getenv("DATABASE_USER")
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
-DATABASE_HOST = os.getenv("DATABASE_HOST")
-DATABASE_PORT = os.getenv("DATABASE_PORT")
-DATABASE_DB = os.getenv("DATABASE_DB")
 
-EXAMPLES_USER = os.getenv("EXAMPLES_USER")
-EXAMPLES_PASSWORD = os.getenv("EXAMPLES_PASSWORD")
-EXAMPLES_HOST = os.getenv("EXAMPLES_HOST")
-EXAMPLES_PORT = os.getenv("EXAMPLES_PORT")
-EXAMPLES_DB = os.getenv("EXAMPLES_DB")
+def get_env_variable(var_name: str, default: Optional[str] = None) -> str:
+    """Get the environment variable or raise exception."""
+    try:
+        return os.environ[var_name]
+    except KeyError:
+        if default is not None:
+            return default
+        else:
+            error_msg = "The environment variable {} was missing, abort...".format(
+                var_name
+            )
+            raise EnvironmentError(error_msg)
+
+
+DATABASE_DIALECT = get_env_variable("DATABASE_DIALECT")
+DATABASE_USER = get_env_variable("DATABASE_USER")
+DATABASE_PASSWORD = get_env_variable("DATABASE_PASSWORD")
+DATABASE_HOST = get_env_variable("DATABASE_HOST")
+DATABASE_PORT = get_env_variable("DATABASE_PORT")
+DATABASE_DB = get_env_variable("DATABASE_DB")
 
 # The SQLAlchemy connection string.
-SQLALCHEMY_DATABASE_URI = (
-    f"{DATABASE_DIALECT}://"
-    f"{DATABASE_USER}:{DATABASE_PASSWORD}@"
-    f"{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_DB}"
+SQLALCHEMY_DATABASE_URI = "%s://%s:%s@%s:%s/%s" % (
+    DATABASE_DIALECT,
+    DATABASE_USER,
+    DATABASE_PASSWORD,
+    DATABASE_HOST,
+    DATABASE_PORT,
+    DATABASE_DB,
 )
 
-SQLALCHEMY_EXAMPLES_URI = (
-    f"{DATABASE_DIALECT}://"
-    f"{EXAMPLES_USER}:{EXAMPLES_PASSWORD}@"
-    f"{EXAMPLES_HOST}:{EXAMPLES_PORT}/{EXAMPLES_DB}"
-)
-
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = os.getenv("REDIS_PORT", "6379")
-REDIS_CELERY_DB = os.getenv("REDIS_CELERY_DB", "0")
-REDIS_RESULTS_DB = os.getenv("REDIS_RESULTS_DB", "1")
+REDIS_HOST = get_env_variable("REDIS_HOST")
+REDIS_PORT = get_env_variable("REDIS_PORT")
+REDIS_CELERY_DB = get_env_variable("REDIS_CELERY_DB", "0")
+REDIS_RESULTS_DB = get_env_variable("REDIS_RESULTS_DB", "1")
 
 RESULTS_BACKEND = FileSystemCache("/app/superset_home/sqllab")
 
 CACHE_CONFIG = {
-    "CACHE_TYPE": "RedisCache",
+    "CACHE_TYPE": "redis",
     "CACHE_DEFAULT_TIMEOUT": 300,
     "CACHE_KEY_PREFIX": "superset_",
     "CACHE_REDIS_HOST": REDIS_HOST,
@@ -72,7 +81,7 @@ CACHE_CONFIG = {
 DATA_CACHE_CONFIG = CACHE_CONFIG
 
 
-class CeleryConfig:
+class CeleryConfig(object):
     broker_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
     imports = ("superset.sql_lab",)
     result_backend = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_RESULTS_DB}"
@@ -92,9 +101,74 @@ class CeleryConfig:
 
 CELERY_CONFIG = CeleryConfig
 
-FEATURE_FLAGS = {"ALERT_REPORTS": True}
+
+from flask_appbuilder.security.sqla.models import User
+from sqlalchemy.orm import Session
+
+def current_user_last_name():
+    """
+    A macro to get the current user's department.
+    """
+    from flask import g
+    user: User = g.user
+    return getattr(user, 'last_name', 'Unknown')
+
+# Add the macro to Jinja's global environment
+from superset.jinja_context import BaseTemplateProcessor
+
+class CustomTemplateProcessor(BaseTemplateProcessor):
+    def __init__(self, database=None, query=None):
+        super().__init__(database, query)
+        self.env.globals.update({
+            'current_user_last_name': current_user_last_name,
+        })
+
+# Set the custom processor
+JINJA_CONTEXT_ADDONS = {"current_user_last_name": current_user_last_name}
+
+FEATURE_FLAGS = {
+	"ALERT_REPORTS": True,
+	"ALLOW_ADHOC_SUBQUERY": True,
+	"EMBEDDED_SUPERSET": True,
+    "DASHBOARD_CROSS_FILTERS": True,
+    "ENABLE_TEMPLATE_PROCESSING": True,
+}
+
+# Extend User model
+from flask_appbuilder.security.sqla.models import User
+from sqlalchemy import Column, String
+
+class CustomUser(User):
+    __tablename__ = "ab_user"
+    organization_name = Column(String(256))
+    user_type = Column(String(256))
+
+# CORS Enabling
+ENABLE_CORS = True
+CORS_OPTIONS = {
+            "supports_credentials": True,
+            "allow_headers": "*",
+            "expose_headers": "*",
+            "resources": "*",
+            "origins": ["*"]
+}
+
+# Dashboard embedding
+GUEST_ROLE_NAME = "Gamma"
+GUEST_TOKEN_JWT_SECRET = "PASTE_GENERATED_SECRET_HERE"
+GUEST_TOKEN_JWT_ALGO = "HS256"
+GUEST_TOKEN_HEADER_NAME = "X-GuestToken"
+GUEST_TOKEN_JWT_EXP_SECONDS = 300 # 5 minutes
+
+OVERRIDE_HTTP_HEADERS = {'X-Frame-Options': 'ALLOWALL'}
+#HTTP_HEADERS={"X-Frame-Options":"ALLOWALL"}
+TALISMAN_ENABLED = False
+#ENABLE_PROXY_FIX = True
+WTF_CSRF_ENABLED = False
+
+
 ALERT_REPORTS_NOTIFICATION_DRY_RUN = True
-WEBDRIVER_BASEURL = "http://superset:8088/"
+WEBDRIVER_BASEURL = "https://dwhanalytics.kenyahmis.org/"
 # The base URL for the email report hyperlinks.
 WEBDRIVER_BASEURL_USER_FRIENDLY = WEBDRIVER_BASEURL
 
@@ -113,3 +187,4 @@ try:
     )
 except ImportError:
     logger.info("Using default Docker config...")
+

@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-x-superset-image: &superset-image apachesuperset.docker.scarf.sh/apache/superset:${TAG:-latest-dev}
+
+x-superset-image: &superset-image pnthusi/superset:${TAG:-3.1.2-rc}
 x-superset-depends-on: &superset-depends-on
-  - db
   - redis
 x-superset-volumes:
   &superset-volumes # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
@@ -32,15 +32,6 @@ services:
     volumes:
       - redis:/data
 
-  db:
-    env_file: docker/.env-non-dev
-    image: postgres:15
-    container_name: superset_db
-    restart: unless-stopped
-    volumes:
-      - db_home:/var/lib/postgresql/data
-      - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-
   superset:
     env_file: docker/.env-non-dev
     image: *superset-image
@@ -52,17 +43,6 @@ services:
       - 8088:8088
     depends_on: *superset-depends-on
     volumes: *superset-volumes
-
-  superset-init:
-    image: *superset-image
-    container_name: superset_init
-    command: ["/app/docker/docker-init.sh"]
-    env_file: docker/.env-non-dev
-    depends_on: *superset-depends-on
-    user: "root"
-    volumes: *superset-volumes
-    healthcheck:
-      disable: true
 
   superset-worker:
     image: *superset-image

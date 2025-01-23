@@ -21,3 +21,5 @@
 !.gitignore
 !superset_config.py
 !superset_config_local.example
+!customSecurity.py
+!client_secret.example.json
